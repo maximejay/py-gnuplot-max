@@ -173,6 +173,7 @@ class Gnuplot(object):
         log: If show the gnuplot log
         **kwargs: the flag that need to be set. You can also set them in the set() function.
         '''
+        self.plot_command = ""
         self.FirstPlot = True
         self.isMultiplot = False
         self.gnuplot = subprocess.Popen(['gnuplot','-p'], shell=True, stdin=subprocess.PIPE)
@@ -334,43 +335,107 @@ class Gnuplot(object):
         else:
             content = str(data)
         
+        self.cmd(f'undefine ${dataname}')
+        
+        if self.log:
+            now = time.strftime('%H:%M:%S', time.localtime(time.time()))
+            print("\033[1;34m[py-gnuplot %s]\033[0m %s" %(now, f'${dataname} << EOD ... EOD'))
+            # ~ if len(content) >= 30:
+                # ~ print("\033[1;34m[py-gnuplot %s]\033[0m %s" %(now, f'${dataname} << EOD\n {content[0:15]} ... {content[len(content)-15:len(content)]}\nEOD'))
+            # ~ else:
+                # ~ print("\033[1;34m[py-gnuplot %s]\033[0m %s" %(now, f'${dataname} << EOD\n{content}\nEOD'))
+        
         self.__call__(f'${dataname} << EOD\n%s\nEOD' %(content))
 
-
-    def plot_dataframe(self, *items, **kwargs):
+    
+    def plot_cmd(self, *items):
         '''
-        data: The data that need to be plotted. It's either the string of list
-        or the Pnadas Dataframe, if it's Pnadas Dataframe it would be converted
-        to string by data.to_csv(). Note that we will execut a extra command
+        Concatenate plot comands.
         "set datafile separator "," to fit the data format of csv.
-        *items: The list of plot command;
+        *items: A list of plot commands;
+        '''
+        
+        if self.plot_command=="":
+            c= 'plot '
+        else:
+            c = self.plot_command
+        
+        i=1
+        for item in items:
+            
+            cmd=item.strip()
+            cmd.lstrip('plot')
+            cmd.strip()
+            
+            if c=='plot ':
+                c += cmd
+            else:
+                c += ',\\\n%s' %(cmd)
+        
+        self.plot_command=c.strip()
+
+
+    def plot_finalise(self,**kwargs):
+        '''
+        Execute the final plot commands stored in self.plot_command and compiled by the function plot_cmd().
         **kwargs: The options that would be set before the plot command.
         '''
+        if ('datafile' not in kwargs.keys()) or ('separator' not in kwargs['datafile']):
+            self.set(datafile = 'separator ","')
         
-        if self.FirstPlot:
-            
-            self.set(**kwargs)
-            
-            c= 'plot'
-        else:
-            c = ''
-
-        for item in items:
-            c += ' %s,\\\n' %(item)
+        self.set(**kwargs)
         
-        self.cmd(c)
-        
-        self.FirstPlot=False
-        
-
-    def plot_dataframe_finalise(self):
+        #remove trailing space and newline
+        cmd=self.plot_command
+        cmd = cmd.strip()
+        cmd = cmd.rstrip("\n")
+        cmd = cmd.rstrip(",")
+        self.cmd(cmd)
         
         self.__call__('%s' %('\n'))
-        self.FirstPlot=True
+        
+        self.plot_command=""
         
         # unset the label if it's in multiplot mode.
         if self.isMultiplot:
             self.unset('for [i=1:200] label i')
+
+
+
+    # ~ def plot_dataframe(self, *items, **kwargs):
+        # ~ '''
+        # ~ data: The data that need to be plotted. It's either the string of list
+        # ~ or the Pnadas Dataframe, if it's Pnadas Dataframe it would be converted
+        # ~ to string by data.to_csv(). Note that we will execut a extra command
+        # ~ "set datafile separator "," to fit the data format of csv.
+        # ~ *items: The list of plot command;
+        # ~ **kwargs: The options that would be set before the plot command.
+        # ~ '''
+        
+        # ~ if self.FirstPlot:
+            
+            # ~ self.set(**kwargs)
+            
+            # ~ c= 'plot'
+        # ~ else:
+            # ~ c = ''
+
+        # ~ for item in items:
+            # ~ c += ' %s,\\\n' %(item)
+        
+        # ~ self.cmd(c)
+        
+        # ~ self.FirstPlot=False
+        
+
+    # ~ def plot_dataframe_finalise(self):
+        
+        # ~ self.__call__('%s' %('\n'))
+        # ~ self.FirstPlot=True
+        
+        # ~ # unset the label if it's in multiplot mode.
+        # ~ if self.isMultiplot:
+            # ~ self.unset('for [i=1:200] label i')
 
 
     def splot_data(self, data, *items, **kwargs):
