@@ -212,6 +212,9 @@ class Gnuplot(object):
     def close(self):
         if self.gnuplot is not None:
             self.gnuplot.stdin.write(bytes('quit\n', encoding = "utf8")) #close the gnuplot window
+            #self.gnuplot.kill()?
+            self.gnuplot.communicate()
+            self.gnuplot.stdin.close()
             self.gnuplot = None
 
     def abort(self):
