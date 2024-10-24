@@ -1,0 +1,3 @@
+Package installation from source:
+
+pip3 install --no-compile .
